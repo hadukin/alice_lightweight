@@ -22,6 +22,7 @@ class AliceCallsListScreen extends StatefulWidget {
 class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
   AliceCore get aliceCore => widget._aliceCore;
   bool _searchEnabled = false;
+  bool _isReverse = false;
   final TextEditingController _queryTextEditingController = TextEditingController();
   List<AliceMenuItem> _menuItems = [];
 
@@ -42,6 +43,7 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
         appBar: AppBar(
           title: _searchEnabled ? _buildSearchField() : _buildTitleWidget(),
           actions: [
+            _buildReverseButton(),
             _buildSearchButton(),
             _buildMenuButton(),
           ],
@@ -57,11 +59,24 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
     _queryTextEditingController.dispose();
   }
 
+  Widget _buildReverseButton() {
+    return IconButton(
+      icon: Icon(Icons.sync),
+      onPressed: _onReverseClicked,
+    );
+  }
+
   Widget _buildSearchButton() {
     return IconButton(
       icon: Icon(Icons.search),
       onPressed: _onSearchClicked,
     );
+  }
+
+  void _onReverseClicked() {
+    setState(() {
+      _isReverse = !_isReverse;
+    });
   }
 
   void _onSearchClicked() {
@@ -136,7 +151,7 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
           calls = calls.where((call) => call.endpoint.toLowerCase().contains(query.toLowerCase())).toList();
         }
         if (calls.isNotEmpty) {
-          return _buildCallsListWidget(calls);
+          return _buildCallsListWidget(_isReverse ? calls : calls.reversed.toList());
         } else {
           return _buildEmptyWidget();
         }
