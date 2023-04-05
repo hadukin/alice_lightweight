@@ -15,14 +15,14 @@ class AliceHttpClientAdapter {
 
   /// Handles httpClientRequest and creates http alice call from it
   void onRequest(HttpClientRequest request, {dynamic body}) {
-    AliceHttpCall call = AliceHttpCall(request.hashCode);
+    final AliceHttpCall call = AliceHttpCall(request.hashCode);
     call.loading = true;
     call.client = "HttpClient (io package)";
     call.method = request.method;
     call.uri = request.uri.toString();
 
     var path = request.uri.path;
-    if (path.length == 0) {
+    if (path.isEmpty) {
       path = "/";
     }
 
@@ -31,7 +31,7 @@ class AliceHttpClientAdapter {
     if (request.uri.scheme == "https") {
       call.secure = true;
     }
-    AliceHttpRequest httpRequest = AliceHttpRequest();
+    final AliceHttpRequest httpRequest = AliceHttpRequest();
     if (body == null) {
       httpRequest.size = 0;
       httpRequest.body = "";
@@ -40,15 +40,16 @@ class AliceHttpClientAdapter {
       httpRequest.body = body;
     }
     httpRequest.time = DateTime.now();
-    Map<String, dynamic> headers = Map();
-    httpRequest.headers.forEach((header, value) {
+    final Map<String, dynamic> headers = <String, dynamic>{};
+
+    httpRequest.headers.forEach((header, dynamic value) {
       headers[header] = value;
     });
 
     httpRequest.headers = headers;
-    String contentType = "unknown";
+    String? contentType = "unknown";
     if (headers.containsKey("Content-Type")) {
-      contentType = headers["Content-Type"];
+      contentType = headers["Content-Type"] as String?;
     }
 
     httpRequest.contentType = contentType;
@@ -60,9 +61,12 @@ class AliceHttpClientAdapter {
   }
 
   /// Handles httpClientRequest and adds response to http alice call
-  void onResponse(HttpClientResponse response, HttpClientRequest request,
-      {dynamic body}) async {
-    AliceHttpResponse httpResponse = AliceHttpResponse();
+  void onResponse(
+    HttpClientResponse response,
+    HttpClientRequest request, {
+    dynamic body,
+  }) async {
+    final AliceHttpResponse httpResponse = AliceHttpResponse();
     httpResponse.status = response.statusCode;
 
     if (body != null) {
@@ -73,7 +77,7 @@ class AliceHttpClientAdapter {
       httpResponse.size = 0;
     }
     httpResponse.time = DateTime.now();
-    Map<String, String> headers = Map();
+    final Map<String, String> headers = {};
     response.headers.forEach((header, values) {
       headers[header] = values.toString();
     });

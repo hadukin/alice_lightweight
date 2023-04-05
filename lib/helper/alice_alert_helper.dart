@@ -12,32 +12,32 @@ class AliceAlertHelper {
     Function? secondButtonAction,
     Brightness? brightness,
   }) {
-    List<Widget> actions = [];
+    final List<Widget> actions = [];
     actions.add(
       TextButton(
-        child: Text(firstButtonTitle),
         onPressed: () {
           if (firstButtonAction != null) {
             firstButtonAction();
           }
           Navigator.of(context).pop();
         },
+        child: Text(firstButtonTitle),
       ),
     );
     if (secondButtonTitle != null) {
       actions.add(
         TextButton(
-          child: Text(secondButtonTitle),
           onPressed: () {
             if (secondButtonAction != null) {
               secondButtonAction();
             }
             Navigator.of(context).pop();
           },
+          child: Text(secondButtonTitle),
         ),
       );
     }
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (BuildContext buildContext) {
         return Theme(

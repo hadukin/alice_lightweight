@@ -1,52 +1,61 @@
 import 'dart:io';
-import 'package:alice_lightweight/core/alice_http_adapter.dart';
-import 'package:alice_lightweight/model/alice_http_call.dart';
 
-import 'package:http/http.dart' as http;
 import 'package:alice_lightweight/core/alice_core.dart';
 import 'package:alice_lightweight/core/alice_dio_interceptor.dart';
+import 'package:alice_lightweight/core/alice_http_adapter.dart';
 import 'package:alice_lightweight/core/alice_http_client_adapter.dart';
+import 'package:alice_lightweight/model/alice_http_call.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 
 class Alice {
   /// Should inspector use dark theme
   final bool darkTheme;
 
-  GlobalKey<NavigatorState> _navigatorKey;
-  AliceCore _aliceCore;
-  AliceHttpClientAdapter _httpClientAdapter;
-  AliceHttpAdapter _httpAdapter;
+  ///Max number of calls that are stored in memory. When count is reached, FIFO
+  ///method queue will be used to remove elements.
+  final int maxCallsCount;
 
-  Alice._(this.darkTheme, this._navigatorKey, this._aliceCore,
-      this._httpClientAdapter, this._httpAdapter);
+  ///Directionality of app. Directionality of the app will be used if set to null.
+  final TextDirection? directionality;
+
+  ///Flag used to show/hide share button
+  final bool? showShareButton;
+
+  GlobalKey<NavigatorState>? _navigatorKey;
+  late AliceCore _aliceCore;
+  late AliceHttpClientAdapter _httpClientAdapter;
+  late AliceHttpAdapter _httpAdapter;
 
   /// Creates alice instance.
-  factory Alice({
-    GlobalKey<NavigatorState> navigatorKey =
-        const GlobalObjectKey<NavigatorState>('AliceNavigatorState'),
-    bool darkTheme = false,
+  Alice({
+    GlobalKey<NavigatorState>? navigatorKey,
+    this.darkTheme = false,
+    this.maxCallsCount = 1000,
+    this.directionality,
+    this.showShareButton = true,
   }) {
-    final aliceCore = AliceCore(navigatorKey, darkTheme);
-    final httpClientAdapter = AliceHttpClientAdapter(aliceCore);
-    final httpAdapter = AliceHttpAdapter(aliceCore);
-
-    return Alice._(
-      darkTheme,
-      navigatorKey,
-      aliceCore,
-      httpClientAdapter,
-      httpAdapter,
+    _navigatorKey = navigatorKey ?? GlobalKey<NavigatorState>();
+    _aliceCore = AliceCore(
+      _navigatorKey,
+      darkTheme: darkTheme,
+      maxCallsCount: maxCallsCount,
+      directionality: directionality,
+      showShareButton: showShareButton,
     );
+    _httpClientAdapter = AliceHttpClientAdapter(_aliceCore);
+    _httpAdapter = AliceHttpAdapter(_aliceCore);
   }
 
   /// Set custom navigation key. This will help if there's route library.
   void setNavigatorKey(GlobalKey<NavigatorState> navigatorKey) {
-    _aliceCore.setNavigatorKey(navigatorKey);
+    _navigatorKey = navigatorKey;
+    _aliceCore.navigatorKey = navigatorKey;
   }
 
   /// Get currently used navigation key
-  GlobalKey<NavigatorState> getNavigatorKey() {
+  GlobalKey<NavigatorState>? getNavigatorKey() {
     return _navigatorKey;
   }
 
@@ -62,8 +71,10 @@ class Alice {
 
   /// Handle response from HttpClient
   void onHttpClientResponse(
-      HttpClientResponse response, HttpClientRequest request,
-      {dynamic body}) {
+    HttpClientResponse response,
+    HttpClientRequest request, {
+    dynamic body,
+  }) {
     _httpClientAdapter.onResponse(response, request, body: body);
   }
 

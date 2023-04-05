@@ -4,6 +4,9 @@ import 'package:alice_lightweight/model/alice_http_response.dart';
 import 'package:alice_lightweight/utils/alice_constants.dart';
 import 'package:flutter/material.dart';
 
+const _endpointMaxLines = 10;
+const _serverMaxLines = 5;
+
 class AliceCallListItemWidget extends StatelessWidget {
   final AliceHttpCall call;
   final Function itemClickAction;
@@ -44,44 +47,50 @@ class AliceCallListItemWidget extends StatelessWidget {
   }
 
   Widget _buildMethodAndEndpointRow(BuildContext context) {
-    Color textColor = _getEndpointTextColor(context);
-    return Row(children: [
-      Text(
-        call.method,
-        style: TextStyle(fontSize: 16, color: textColor),
-      ),
-      Padding(
-        padding: EdgeInsets.only(left: 10),
-      ),
-      Flexible(
-        child: Container(
-          child: Text(
-            call.endpoint,
-            overflow: TextOverflow.visible,
-            style: TextStyle(
-              fontSize: 16,
-              color: textColor,
+    final Color? textColor = _getEndpointTextColor(context);
+    return Row(
+      children: [
+        Text(
+          call.method,
+          style: TextStyle(fontSize: 16, color: textColor),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(left: 10),
+        ),
+        Flexible(
+          // ignore: avoid_unnecessary_containers
+          child: Container(
+            child: Text(
+              call.endpoint,
+              maxLines: _endpointMaxLines,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                color: textColor,
+              ),
             ),
           ),
-        ),
-      )
-    ]);
+        )
+      ],
+    );
   }
 
   Widget _buildServerRow() {
-    return Row(children: [
-      _getSecuredConnectionIcon(call.secure),
-      Expanded(
-        child: Text(
-          call.server,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-          style: TextStyle(
-            fontSize: 14,
+    return Row(
+      children: [
+        _getSecuredConnectionIcon(call.secure),
+        Expanded(
+          child: Text(
+            call.server,
+            overflow: TextOverflow.ellipsis,
+            maxLines: _serverMaxLines,
+            style: const TextStyle(
+              fontSize: 14,
+            ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   Widget _buildStatsRow() {
@@ -89,19 +98,22 @@ class AliceCallListItemWidget extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Flexible(
-            flex: 1,
-            child: Text(_formatTime(call.request?.time),
-                style: TextStyle(fontSize: 12))),
-        Flexible(
-            flex: 1,
-            child: Text("${AliceConversionHelper.formatTime(call.duration)}",
-                style: TextStyle(fontSize: 12))),
-        Flexible(
-          flex: 1,
           child: Text(
-            "${AliceConversionHelper.formatBytes(call.request?.size ?? 0)} / "
-            "${AliceConversionHelper.formatBytes(call.response?.size ?? 0)}",
-            style: TextStyle(fontSize: 12),
+            _formatTime(call.request!.time),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            AliceConversionHelper.formatTime(call.duration),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            "${AliceConversionHelper.formatBytes(call.request!.size)} / "
+            "${AliceConversionHelper.formatBytes(call.response!.size)}",
+            style: const TextStyle(fontSize: 12),
           ),
         )
       ],
@@ -112,11 +124,7 @@ class AliceCallListItemWidget extends StatelessWidget {
     return Container(height: 1, color: AliceConstants.grey);
   }
 
-  String _formatTime(DateTime? time) {
-    if (time == null) {
-      return '';
-    }
-
+  String _formatTime(DateTime time) {
     return "${formatTimeUnit(time.hour)}:"
         "${formatTimeUnit(time.minute)}:"
         "${formatTimeUnit(time.second)}:"
@@ -128,16 +136,15 @@ class AliceCallListItemWidget extends StatelessWidget {
   }
 
   Widget _buildResponseColumn(BuildContext context) {
-    List<Widget> widgets = [];
+    final List<Widget> widgets = [];
     if (call.loading) {
       widgets.add(
         SizedBox(
-          child: new CircularProgressIndicator(
-            valueColor:
-                new AlwaysStoppedAnimation<Color>(AliceConstants.lightRed),
-          ),
           width: 20,
           height: 20,
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AliceConstants.lightRed),
+          ),
         ),
       );
       widgets.add(
@@ -148,7 +155,7 @@ class AliceCallListItemWidget extends StatelessWidget {
     }
     widgets.add(
       Text(
-        _getStatus(call.response),
+        _getStatus(call.response!),
         style: TextStyle(
           fontSize: 16,
           color: _getStatusTextColor(context),
@@ -158,18 +165,17 @@ class AliceCallListItemWidget extends StatelessWidget {
     return Container(
       width: 50,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: widgets,
       ),
     );
   }
 
-  Color _getStatusTextColor(BuildContext context) {
-    int status = call.response?.status ?? -1;
+  Color? _getStatusTextColor(BuildContext context) {
+    final int? status = call.response!.status;
     if (status == -1) {
       return AliceConstants.red;
-    } else if (status < 200) {
-      return Theme.of(context).textTheme.bodyText1?.color ?? Colors.green;
+    } else if (status! < 200) {
+      return Theme.of(context).textTheme.bodyText1!.color;
     } else if (status >= 200 && status < 300) {
       return AliceConstants.green;
     } else if (status >= 300 && status < 400) {
@@ -177,11 +183,11 @@ class AliceCallListItemWidget extends StatelessWidget {
     } else if (status >= 400 && status < 600) {
       return AliceConstants.red;
     } else {
-      return Theme.of(context).textTheme.bodyText1?.color ?? Colors.black;
+      return Theme.of(context).textTheme.bodyText1!.color;
     }
   }
 
-  Color _getEndpointTextColor(BuildContext context) {
+  Color? _getEndpointTextColor(BuildContext context) {
     if (call.loading) {
       return AliceConstants.grey;
     } else {
@@ -189,10 +195,7 @@ class AliceCallListItemWidget extends StatelessWidget {
     }
   }
 
-  String _getStatus(AliceHttpResponse? response) {
-    if (response == null) {
-      return 'null';
-    }
+  String _getStatus(AliceHttpResponse response) {
     if (response.status == -1) {
       return "ERR";
     } else if (response.status == 0) {
@@ -213,7 +216,7 @@ class AliceCallListItemWidget extends StatelessWidget {
       iconColor = AliceConstants.red;
     }
     return Padding(
-      padding: EdgeInsets.only(right: 3),
+      padding: const EdgeInsets.only(right: 3),
       child: Icon(
         iconData,
         color: iconColor,

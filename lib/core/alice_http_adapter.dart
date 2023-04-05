@@ -18,19 +18,15 @@ class AliceHttpAdapter {
     if (response.request == null) {
       return;
     }
-    var request = response.request;
+    final request = response.request!;
 
-    if (request == null) {
-      return;
-    }
-
-    AliceHttpCall call = AliceHttpCall(response.request.hashCode);
+    final AliceHttpCall call = AliceHttpCall(response.request.hashCode);
     call.loading = true;
     call.client = "HttpClient (http package)";
     call.uri = request.url.toString();
     call.method = request.method;
     var path = request.url.path;
-    if (path.length == 0) {
+    if (path.isEmpty) {
       path = "/";
     }
     call.endpoint = path;
@@ -40,13 +36,18 @@ class AliceHttpAdapter {
       call.secure = true;
     }
 
-    AliceHttpRequest httpRequest = AliceHttpRequest();
+    final AliceHttpRequest httpRequest = AliceHttpRequest();
 
     if (response.request is http.Request) {
-      // we are guranteed the existence of body and headers
+      // we are guaranteed` the existence of body and headers
+      if (body != null) {
+        httpRequest.body = body;
+      }
+      // ignore: cast_nullable_to_non_nullable
       httpRequest.body = body ?? (response.request as http.Request).body ?? "";
       httpRequest.size = utf8.encode(httpRequest.body.toString()).length;
-      httpRequest.headers = Map.from(response.request?.headers ?? {});
+      httpRequest.headers =
+          Map<String, dynamic>.from(response.request!.headers);
     } else if (body == null) {
       httpRequest.size = 0;
       httpRequest.body = "";
@@ -57,22 +58,22 @@ class AliceHttpAdapter {
 
     httpRequest.time = DateTime.now();
 
-    String contentType = "unknown";
+    String? contentType = "unknown";
     if (httpRequest.headers.containsKey("Content-Type")) {
-      contentType = httpRequest.headers["Content-Type"];
+      contentType = httpRequest.headers["Content-Type"] as String?;
     }
 
     httpRequest.contentType = contentType;
 
-    httpRequest.queryParameters = response.request?.url.queryParameters ?? {};
+    httpRequest.queryParameters = response.request!.url.queryParameters;
 
-    AliceHttpResponse httpResponse = AliceHttpResponse();
+    final AliceHttpResponse httpResponse = AliceHttpResponse();
     httpResponse.status = response.statusCode;
     httpResponse.body = response.body;
 
     httpResponse.size = utf8.encode(response.body.toString()).length;
     httpResponse.time = DateTime.now();
-    Map<String, String> responseHeaders = Map();
+    final Map<String, String> responseHeaders = {};
     response.headers.forEach((header, values) {
       responseHeaders[header] = values.toString();
     });
