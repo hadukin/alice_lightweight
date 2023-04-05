@@ -1,12 +1,12 @@
 import 'package:alice_lightweight/model/alice_http_call.dart';
-import 'package:alice_lightweight/utils/alice_constants.dart';
 import 'package:alice_lightweight/ui/widget/alice_base_call_details_widget.dart';
+import 'package:alice_lightweight/utils/alice_constants.dart';
 import 'package:flutter/material.dart';
 
 class AliceCallResponseWidget extends StatefulWidget {
   final AliceHttpCall call;
 
-  AliceCallResponseWidget(this.call);
+  const AliceCallResponseWidget(this.call);
 
   @override
   State<StatefulWidget> createState() {
@@ -29,7 +29,7 @@ class _AliceCallResponseWidgetState
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> rows = [];
+    final List<Widget> rows = [];
     if (!_call.loading) {
       rows.addAll(_buildGeneralDataRows());
       rows.addAll(_buildHeadersRows());
@@ -43,26 +43,18 @@ class _AliceCallResponseWidgetState
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            new CircularProgressIndicator(),
-            Text("Awaiting response...")
-          ],
+          children: const [CircularProgressIndicator(), Text("Awaiting response...")],
         ),
       );
     }
   }
 
   List<Widget> _buildGeneralDataRows() {
-    final response = _call.response;
-    if (response == null) {
-      return [];
-    }
+    final List<Widget> rows = [];
+    rows.add(getListRow("Received:", _call.response!.time.toString()));
+    rows.add(getListRow("Bytes received:", formatBytes(_call.response!.size)));
 
-    List<Widget> rows = [];
-    rows.add(getListRow("Received:", response.time.toString()));
-    rows.add(getListRow("Bytes received:", formatBytes(response.size)));
-
-    var status = response.status;
+    final status = _call.response!.status;
     var statusText = "$status";
     if (status == -1) {
       statusText = "Error";
@@ -73,26 +65,23 @@ class _AliceCallResponseWidgetState
   }
 
   List<Widget> _buildHeadersRows() {
-    final response = _call.response;
-    if (response == null) {
-      return [];
-    }
-
-    List<Widget> rows = [];
-    var headers = response.headers;
+    final List<Widget> rows = [];
+    final headers = _call.response!.headers;
     var headersContent = "Headers are empty";
-    if (headers.length > 0) {
+    if (headers != null && headers.isNotEmpty) {
       headersContent = "";
     }
     rows.add(getListRow("Headers: ", headersContent));
-    response.headers.forEach((header, value) {
-      rows.add(getListRow("   • $header:", value.toString()));
-    });
+    if (_call.response!.headers != null) {
+      _call.response!.headers!.forEach((header, value) {
+        rows.add(getListRow("   • $header:", value.toString()));
+      });
+    }
     return rows;
   }
 
   List<Widget> _buildBodyRows() {
-    List<Widget> rows = [];
+    final List<Widget> rows = [];
     if (_isImageResponse()) {
       rows.addAll(_buildImageBodyRows());
     } else if (_isTextResponse()) {
@@ -109,12 +98,12 @@ class _AliceCallResponseWidgetState
   }
 
   List<Widget> _buildImageBodyRows() {
-    List<Widget> rows = [];
+    final List<Widget> rows = [];
     rows.add(
       Column(
         children: [
           Row(
-            children: [
+            children: const [
               Text(
                 "Body: Image",
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -126,14 +115,17 @@ class _AliceCallResponseWidgetState
             _call.uri,
             fit: BoxFit.fill,
             headers: _buildRequestHeaders(),
-            loadingBuilder: (BuildContext context, Widget child,
-                ImageChunkEvent? loadingProgress) {
+            loadingBuilder: (
+              BuildContext context,
+              Widget child,
+              ImageChunkEvent? loadingProgress,
+            ) {
               if (loadingProgress == null) return child;
               return Center(
                 child: CircularProgressIndicator(
                   value: loadingProgress.expectedTotalBytes != null
                       ? loadingProgress.cumulativeBytesLoaded /
-                          (loadingProgress.expectedTotalBytes ?? 1)
+                          loadingProgress.expectedTotalBytes!
                       : null,
                 ),
               );
@@ -147,77 +139,73 @@ class _AliceCallResponseWidgetState
   }
 
   List<Widget> _buildLargeBodyTextRows() {
-    final response = _call.response;
-    if (response == null) {
-      return [];
-    }
-
-    List<Widget> rows = [];
+    final List<Widget> rows = [];
     if (_showLargeBody) {
       return _buildTextBodyRows();
     } else {
-      rows.add(getListRow("Body:",
-          "Too large to show (${response.body.toString().length} Bytes)"));
+      rows.add(
+        getListRow(
+          "Body:",
+          "Too large to show (${_call.response!.body.toString().length} Bytes)",
+        ),
+      );
       rows.add(const SizedBox(height: 8));
       rows.add(
         ElevatedButton(
-          style: ElevatedButton.styleFrom(primary: AliceConstants.lightRed),
-          child: Text("Show body"),
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all<Color>(AliceConstants.lightRed),
+          ),
           onPressed: () {
             setState(() {
               _showLargeBody = true;
             });
           },
+          child: const Text("Show body"),
         ),
       );
       rows.add(const SizedBox(height: 8));
-      rows.add(Text("Warning! It will take some time to render output."));
+      rows.add(const Text("Warning! It will take some time to render output."));
     }
     return rows;
   }
 
   List<Widget> _buildTextBodyRows() {
-    final response = _call.response;
-    if (response == null) {
-      return [];
-    }
-
-    List<Widget> rows = [];
-    var headers = response.headers;
-    var bodyContent = formatBody(response.body, getContentType(headers));
+    final List<Widget> rows = [];
+    final headers = _call.response!.headers;
+    final bodyContent = formatBody(_call.response!.body, getContentType(headers));
     rows.add(getListRow("Body:", bodyContent));
     return rows;
   }
 
   List<Widget> _buildUnknownBodyRows() {
-    final response = _call.response;
-    if (response == null) {
-      return [];
-    }
-
-    List<Widget> rows = [];
-    var headers = response.headers;
-    var contentType = getContentType(headers);
+    final List<Widget> rows = [];
+    final headers = _call.response!.headers;
+    final contentType = getContentType(headers) ?? "<unknown>";
 
     if (_showUnsupportedBody) {
-      var bodyContent = formatBody(response.body, getContentType(headers));
+      final bodyContent = formatBody(_call.response!.body, getContentType(headers));
       rows.add(getListRow("Body:", bodyContent));
     } else {
-      rows.add(getListRow(
+      rows.add(
+        getListRow(
           "Body:",
           "Unsupported body. Alice can render video/image/text body. "
               "Response has Content-Type: $contentType which can't be handled. "
               "If you're feeling lucky you can try button below to try render body"
-              " as text, but it may fail."));
+              " as text, but it may fail.",
+        ),
+      );
       rows.add(
         ElevatedButton(
-          child: Text("Show unsupported body"),
-          style: ElevatedButton.styleFrom(primary: AliceConstants.lightRed),
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all<Color>(AliceConstants.lightRed),
+          ),
           onPressed: () {
             setState(() {
               _showUnsupportedBody = true;
             });
           },
+          child: const Text("Show unsupported body"),
         ),
       );
     }
@@ -225,44 +213,38 @@ class _AliceCallResponseWidgetState
   }
 
   Map<String, String> _buildRequestHeaders() {
-    Map<String, String> requestHeaders = Map();
-
-    final request = _call.request;
-    if (request == null) {
-      return requestHeaders;
+    final Map<String, String> requestHeaders = {};
+    if (_call.request?.headers != null) {
+      requestHeaders.addAll(
+        _call.request!.headers.map(
+          (String key, dynamic value) {
+            return MapEntry(key, value.toString());
+          },
+        ),
+      );
     }
-
-    requestHeaders.addAll(
-      request.headers.map(
-        (String key, dynamic value) {
-          return MapEntry(key, value.toString());
-        },
-      ),
-    );
     return requestHeaders;
   }
 
   bool _isImageResponse() {
-    return _getContentTypeOfResponse()
-        .toLowerCase()
-        .contains(_imageContentType);
+    return _getContentTypeOfResponse()!.toLowerCase().contains(_imageContentType);
   }
 
   bool _isTextResponse() {
-    String responseContentTypeLowerCase =
-        _getContentTypeOfResponse().toLowerCase();
+    final String responseContentTypeLowerCase =
+        _getContentTypeOfResponse()!.toLowerCase();
 
     return responseContentTypeLowerCase.contains(_jsonContentType) ||
         responseContentTypeLowerCase.contains(_xmlContentType) ||
         responseContentTypeLowerCase.contains(_textContentType);
   }
 
-  String _getContentTypeOfResponse() {
-    return getContentType(_call.response?.headers ?? {});
+  String? _getContentTypeOfResponse() {
+    return getContentType(_call.response!.headers);
   }
 
   bool _isLargeResponseBody() {
-    return _call.response?.body != null &&
-        (_call.response?.body?.toString() ?? '').length > _kLargeOutputSize;
+    return _call.response!.body != null &&
+        _call.response!.body.toString().length > _kLargeOutputSize;
   }
 }

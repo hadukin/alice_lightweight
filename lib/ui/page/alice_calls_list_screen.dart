@@ -2,55 +2,40 @@ import 'package:alice_lightweight/core/alice_core.dart';
 import 'package:alice_lightweight/helper/alice_alert_helper.dart';
 import 'package:alice_lightweight/model/alice_http_call.dart';
 import 'package:alice_lightweight/model/alice_menu_item.dart';
+import 'package:alice_lightweight/model/alice_sort_option.dart';
 import 'package:alice_lightweight/ui/page/alice_call_details_screen.dart';
+import 'package:alice_lightweight/ui/page/alice_stats_screen.dart';
 import 'package:alice_lightweight/ui/widget/alice_call_list_item_widget.dart';
 import 'package:alice_lightweight/utils/alice_constants.dart';
 import 'package:alice_lightweight/utils/alice_share_logs.dart';
 import 'package:flutter/material.dart';
 
-import 'alice_stats_screen.dart';
-
 class AliceCallsListScreen extends StatefulWidget {
   final AliceCore _aliceCore;
 
-  AliceCallsListScreen(this._aliceCore);
+  const AliceCallsListScreen(this._aliceCore);
 
   @override
   _AliceCallsListScreenState createState() => _AliceCallsListScreenState();
 }
 
-class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
-  AliceCore get aliceCore => widget._aliceCore;
-  bool _searchEnabled = false;
-  bool _isReverse = false;
+class _AliceCallsListScreenState extends State<AliceCallsListScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _queryTextEditingController = TextEditingController();
-  List<AliceMenuItem> _menuItems = [];
+  final List<AliceMenuItem> _menuItems = [];
+
+  AliceSortOption? _sortOption = AliceSortOption.time;
+  bool _sortAscending = false;
+  bool _searchEnabled = false;
+  bool isAndroidRawLogsEnabled = false;
+
+  AliceCore get aliceCore => widget._aliceCore;
 
   _AliceCallsListScreenState() {
+    _menuItems.add(AliceMenuItem("Sort", Icons.sort));
     _menuItems.add(AliceMenuItem("Delete", Icons.delete));
     _menuItems.add(AliceMenuItem("Stats", Icons.insert_chart));
     _menuItems.add(AliceMenuItem("Share", Icons.share));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Theme(
-      data: ThemeData(
-        brightness: widget._aliceCore.brightness,
-        colorScheme: ColorScheme.fromSwatch().copyWith(secondary: AliceConstants.lightRed),
-      ),
-      child: Scaffold(
-        appBar: AppBar(
-          title: _searchEnabled ? _buildSearchField() : _buildTitleWidget(),
-          actions: [
-            _buildReverseButton(),
-            _buildSearchButton(),
-            _buildMenuButton(),
-          ],
-        ),
-        body: _buildCallsListWrapper(),
-      ),
-    );
   }
 
   @override
@@ -59,24 +44,38 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
     _queryTextEditingController.dispose();
   }
 
-  Widget _buildReverseButton() {
-    return IconButton(
-      icon: Icon(Icons.sync),
-      onPressed: _onReverseClicked,
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: widget._aliceCore.directionality ?? Directionality.of(context),
+      child: Theme(
+        data: ThemeData(
+          brightness: widget._aliceCore.brightness,
+          colorScheme: ColorScheme.light(secondary: AliceConstants.lightRed),
+        ),
+        child: Scaffold(
+          appBar: AppBar(
+            title: _searchEnabled ? _buildSearchField() : _buildTitleWidget(),
+            actions: _buildActionWidgets(),
+          ),
+          body: _buildCallsListWrapper(),
+        ),
+      ),
     );
+  }
+
+  List<Widget> _buildActionWidgets() {
+    return [
+      _buildSearchButton(),
+      _buildMenuButton(),
+    ];
   }
 
   Widget _buildSearchButton() {
     return IconButton(
-      icon: Icon(Icons.search),
+      icon: const Icon(Icons.search),
       onPressed: _onSearchClicked,
     );
-  }
-
-  void _onReverseClicked() {
-    setState(() {
-      _isReverse = !_isReverse;
-    });
   }
 
   void _onSearchClicked() {
@@ -95,16 +94,18 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
         return _menuItems.map((AliceMenuItem item) {
           return PopupMenuItem<AliceMenuItem>(
             value: item,
-            child: Row(children: [
-              Icon(
-                item.iconData,
-                color: AliceConstants.lightRed,
-              ),
-              Padding(
-                padding: EdgeInsets.only(left: 10),
-              ),
-              Text(item.title)
-            ]),
+            child: Row(
+              children: [
+                Icon(
+                  item.iconData,
+                  color: AliceConstants.lightRed,
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(left: 10),
+                ),
+                Text(item.title)
+              ],
+            ),
           );
         }).toList();
       },
@@ -112,7 +113,7 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
   }
 
   Widget _buildTitleWidget() {
-    return Text("Alice - Inspector");
+    return const Text("Alice");
   }
 
   Widget _buildSearchField() {
@@ -124,12 +125,15 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
         hintStyle: TextStyle(fontSize: 16.0, color: AliceConstants.grey),
         border: InputBorder.none,
       ),
-      style: TextStyle(fontSize: 16.0),
+      style: const TextStyle(fontSize: 16.0),
       onChanged: _updateSearchQuery,
     );
   }
 
   void _onMenuItemSelected(AliceMenuItem menuItem) {
+    if (menuItem.title == "Sort") {
+      _showSortDialog();
+    }
     if (menuItem.title == "Delete") {
       _showRemoveDialog();
     }
@@ -146,12 +150,16 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
       stream: aliceCore.callsSubject,
       builder: (context, snapshot) {
         List<AliceHttpCall> calls = snapshot.data ?? [];
-        String query = _queryTextEditingController.text.trim();
+        final String query = _queryTextEditingController.text.trim();
         if (query.isNotEmpty) {
-          calls = calls.where((call) => call.endpoint.toLowerCase().contains(query.toLowerCase())).toList();
+          calls = calls
+              .where(
+                (call) => call.endpoint.toLowerCase().contains(query.toLowerCase()),
+              )
+              .toList();
         }
         if (calls.isNotEmpty) {
-          return _buildCallsListWidget(_isReverse ? calls : calls.reversed.toList());
+          return _buildCallsListWidget(calls);
         } else {
           return _buildEmptyWidget();
         }
@@ -161,52 +169,118 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
 
   Widget _buildEmptyWidget() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 32),
+      margin: const EdgeInsets.symmetric(horizontal: 32),
       child: Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(
-            Icons.error_outline,
-            color: AliceConstants.orange,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            "There are no calls to show",
-            style: TextStyle(fontSize: 18),
-          ),
-          const SizedBox(height: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-              "• Check if you send any http request",
-              style: TextStyle(fontSize: 12),
-              textAlign: TextAlign.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: AliceConstants.orange,
             ),
-            Text(
-              "• Check your Alice configuration",
-              style: TextStyle(fontSize: 12),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 6),
+            const Text(
+              "There are no calls to show",
+              style: TextStyle(fontSize: 18),
             ),
-            Text(
-              "• Check search filters",
-              style: TextStyle(fontSize: 12),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  "• Check if you send any http request",
+                  style: TextStyle(fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  "• Check your Alice configuration",
+                  style: TextStyle(fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  "• Check search filters",
+                  style: TextStyle(fontSize: 12),
+                  textAlign: TextAlign.center,
+                )
+              ],
             )
-          ])
-        ]),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCallsListWidget(List<AliceHttpCall> calls) {
+    final List<AliceHttpCall> callsSorted = List.of(calls);
+    switch (_sortOption) {
+      case AliceSortOption.time:
+        if (_sortAscending) {
+          callsSorted.sort(
+            (call1, call2) => call1.createdTime.compareTo(call2.createdTime),
+          );
+        } else {
+          callsSorted.sort(
+            (call1, call2) => call2.createdTime.compareTo(call1.createdTime),
+          );
+        }
+        break;
+      case AliceSortOption.responseTime:
+        if (_sortAscending) {
+          callsSorted.sort();
+          callsSorted.sort(
+            (call1, call2) => call1.response?.time.compareTo(call2.response!.time) ?? -1,
+          );
+        } else {
+          callsSorted.sort(
+            (call1, call2) => call2.response?.time.compareTo(call1.response!.time) ?? -1,
+          );
+        }
+        break;
+      case AliceSortOption.responseCode:
+        if (_sortAscending) {
+          callsSorted.sort(
+            (call1, call2) =>
+                call1.response?.status?.compareTo(call2.response!.status!) ?? -1,
+          );
+        } else {
+          callsSorted.sort(
+            (call1, call2) =>
+                call2.response?.status?.compareTo(call1.response!.status!) ?? -1,
+          );
+        }
+        break;
+      case AliceSortOption.responseSize:
+        if (_sortAscending) {
+          callsSorted.sort(
+            (call1, call2) => call1.response?.size.compareTo(call2.response!.size) ?? -1,
+          );
+        } else {
+          callsSorted.sort(
+            (call1, call2) => call2.response?.size.compareTo(call1.response!.size) ?? -1,
+          );
+        }
+        break;
+      case AliceSortOption.endpoint:
+        if (_sortAscending) {
+          callsSorted.sort((call1, call2) => call1.endpoint.compareTo(call2.endpoint));
+        } else {
+          callsSorted.sort((call1, call2) => call2.endpoint.compareTo(call1.endpoint));
+        }
+        break;
+      default:
+        break;
+    }
+
     return ListView.builder(
-      itemCount: calls.length,
+      itemCount: callsSorted.length,
       itemBuilder: (context, index) {
-        return AliceCallListItemWidget(calls[index], _onListItemClicked);
+        return AliceCallListItemWidget(callsSorted[index], _onListItemClicked);
       },
     );
   }
 
   void _onListItemClicked(AliceHttpCall call) {
-    Navigator.push(
+    Navigator.push<void>(
       widget._aliceCore.getContext()!,
       MaterialPageRoute(
         builder: (context) => AliceCallDetailsScreen(call, widget._aliceCore),
@@ -220,7 +294,7 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
       "Delete calls",
       "Do you want to delete http calls?",
       firstButtonTitle: "No",
-      firstButtonAction: () => {},
+      firstButtonAction: () => <String, dynamic>{},
       secondButtonTitle: "Yes",
       secondButtonAction: () => _removeCalls(),
     );
@@ -231,7 +305,7 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
   }
 
   void _showStatsScreen() {
-    Navigator.push(
+    Navigator.push<void>(
       aliceCore.getContext()!,
       MaterialPageRoute(
         builder: (context) => AliceStatsScreen(widget._aliceCore),
@@ -240,6 +314,80 @@ class _AliceCallsListScreenState extends State<AliceCallsListScreen> {
   }
 
   void _updateSearchQuery(String query) {
+    setState(() {});
+  }
+
+  void _showSortDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext buildContext) {
+        return Theme(
+          data: ThemeData(
+            brightness: Brightness.light,
+          ),
+          child: AlertDialog(
+            title: const Text("Select filter"),
+            content: StatefulBuilder(
+              builder: (context, setState) {
+                return Wrap(
+                  children: [
+                    ...AliceSortOption.values
+                        .map(
+                          (AliceSortOption sortOption) => RadioListTile<AliceSortOption>(
+                            title: Text(sortOption.name),
+                            value: sortOption,
+                            groupValue: _sortOption,
+                            onChanged: (AliceSortOption? value) {
+                              setState(() {
+                                _sortOption = value;
+                              });
+                            },
+                          ),
+                        )
+                        .toList(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text("Descending"),
+                        Switch(
+                          value: _sortAscending,
+                          onChanged: (value) {
+                            setState(() {
+                              _sortAscending = value;
+                            });
+                          },
+                          activeTrackColor: Colors.grey,
+                          activeColor: Colors.white,
+                        ),
+                        const Text("Ascending")
+                      ],
+                    )
+                  ],
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  sortCalls();
+                },
+                child: const Text("Use filter"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void sortCalls() {
     setState(() {});
   }
 
