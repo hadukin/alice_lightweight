@@ -28,5 +28,5 @@ Future<File> saveLogs(List<AliceHttpCall> logs) async {
 
 void shareFile(File file) {
   final path = file.path;
-  Share.shareFiles([path], subject: "Alice logs");
+  Share.shareXFiles([XFile(path)], subject: "Alice logs");
 }

@@ -4,6 +4,7 @@ import 'package:alice_lightweight/model/alice_http_response.dart';
 
 class AliceHttpCall {
   final int id;
+  late DateTime createdTime;
   String client = "";
   bool loading = true;
   bool secure = false;
@@ -19,41 +20,38 @@ class AliceHttpCall {
 
   AliceHttpCall(this.id) {
     loading = true;
+    createdTime = DateTime.now();
   }
 
-  setResponse(AliceHttpResponse response) {
+  void setResponse(AliceHttpResponse response) {
     this.response = response;
     loading = false;
   }
 
   String getCurlCommand() {
-    if (request == null) {
-      return '';
-    }
-
     var compressed = false;
     var curlCmd = "curl";
-    curlCmd += " -X " + method;
-    var headers = request!.headers;
-    headers.forEach((key, value) {
+    curlCmd += " -X $method";
+    final headers = request!.headers;
+    headers.forEach((key, dynamic value) {
       if ("Accept-Encoding" == key && "gzip" == value) {
         compressed = true;
       }
-      curlCmd += " -H \'$key: $value\'";
+      curlCmd += " -H '$key: $value'";
     });
 
-    String requestBody = request!.body.toString();
+    final String requestBody = request!.body.toString();
     if (requestBody != '') {
       // try to keep to a single line and use a subshell to preserve any line breaks
-      curlCmd += " --data \$'" + requestBody.replaceAll("\n", "\\n") + "'";
+      curlCmd += " --data \$'${requestBody.replaceAll("\n", "\\n")}'";
     }
 
-    var queryParamMap = request?.queryParameters;
-    int paramCount = queryParamMap?.keys.length ?? 0;
+    final queryParamMap = request!.queryParameters;
+    int paramCount = queryParamMap.keys.length;
     var queryParams = "";
     if (paramCount > 0) {
       queryParams += "?";
-      queryParamMap?.forEach((key, dynamic value) {
+      queryParamMap.forEach((key, dynamic value) {
         queryParams += '$key=$value';
         paramCount -= 1;
         if (paramCount > 0) {
